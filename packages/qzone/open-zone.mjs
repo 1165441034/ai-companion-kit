@@ -26,9 +26,16 @@ function exists(p) {
 
 // ── 1. 找 qq-bridge ──────────────────────────────────────────
 function findBridge() {
+  // 明确指定了就用它 —— 不对就报错，绝不偷偷换成别的目录
+  const env = process.env.HER_BRIDGE_DIR || process.env.QQ_BRIDGE_DIR;
+  if (env) {
+    if (exists(path.join(env, 'roles'))) return env;
+    console.log(`❌ 你设的 HER_BRIDGE_DIR 里没有 roles/ 目录：`);
+    console.log(`   ${env}`);
+    console.log(`   指的是 qq-bridge 的根目录（里面应该有 roles/ 和 src/）`);
+    process.exit(1);
+  }
   const cands = [
-    process.env.HER_BRIDGE_DIR,
-    process.env.QQ_BRIDGE_DIR,
     path.join(path.parse(process.cwd()).root, 'qq-bridge'),
     'E:\\qq-bridge',
     'D:\\qq-bridge',
