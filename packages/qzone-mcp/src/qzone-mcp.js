@@ -30,6 +30,7 @@ const SNOWLUMA_HTTP = (process.env.SNOWLUMA_HTTP_URL || 'http://127.0.0.1:3000')
 const CONFIG_CANDIDATES = [
   process.env.QZONE_CONFIG,
   process.env.QQ_BRIDGE_CONFIG,
+  process.env.HER_BRIDGE_DIR && path.join(process.env.HER_BRIDGE_DIR, 'config.json'),
   path.join(process.cwd(), 'config.json'),
   path.join(process.cwd(), '..', 'config.json'),
   'E:\\qq-bridge\\config.json',
@@ -37,9 +38,17 @@ const CONFIG_CANDIDATES = [
 ].filter(Boolean);
 
 // 允许发图的目录：只认这几个地方，别的路径一律拒绝
-const IMAGE_DIRS = (process.env.QZONE_IMAGE_DIRS
+// 默认那三个里，只留真实存在的 —— 别人机器上没有 E 盘那两个，留着只会让发图全失败
+const IMAGE_DIR_CANDIDATES = (process.env.QZONE_IMAGE_DIRS
   || ['E:\\ai\\_her_pics', 'E:\\ai\\_phone_shots', path.join(os.homedir(), 'Pictures')].join(';'))
   .split(';').map((s) => s.trim()).filter(Boolean);
+
+function isDir(d) {
+  try { return fs.statSync(d).isDirectory(); } catch { return false; }
+}
+
+const MISSING_IMAGE_DIRS = IMAGE_DIR_CANDIDATES.filter((d) => !isDir(d));
+const IMAGE_DIRS = IMAGE_DIR_CANDIDATES.filter(isDir);
 
 const MAX_IMAGES = 9;
 
@@ -370,13 +379,15 @@ server.tool(
 if (process.argv.includes('--selftest')) {
   const token = loadSnowlumaToken();
   console.log('OneBot 地址:', SNOWLUMA_HTTP);
-  console.log('令牌:', token ? `已拿到（${token.length} 字符）` : '❌ 没找到');
-  console.log('允许发图的目录:', IMAGE_DIRS.join(' , '));
+  console.log('令牌:', token ? `已拿到（${token.length} 字符）` : '❌ 没找到（设 SNOWLUMA_ACCESS_TOKEN，或确认 config.json 里有 snowluma.accessToken）');
+  console.log('允许发图的目录:', IMAGE_DIRS.join(' , ') || '（空 —— 发图会被拒绝，用 QZONE_IMAGE_DIRS 配一个）');
+  if (MISSING_IMAGE_DIRS.length) console.log('  跳过（不存在）:', MISSING_IMAGE_DIRS.join(' , '));
   if (token) {
     try {
       const d = await snowluma('get_qzone_msg_list', { num: 1 });
-      console.log('连通性: ✅ 能取到自己的说说');
-      console.log(JSON.stringify(d ?? {}).slice(0, 200));
+      const list = d?.msglist ?? d?.data?.msglist ?? d?.msgs ?? [];
+      // 只报条数：说说内容是她自己的，不该顺手刷到终端/截图里
+      console.log(`连通性: ✅ 能取到自己的说说（${Array.isArray(list) ? list.length : 0} 条，内容不打印）`);
     } catch (e) {
       console.log('连通性: ❌', e?.message ?? e);
     }

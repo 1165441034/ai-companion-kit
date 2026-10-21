@@ -11,7 +11,9 @@
     "demo": "node packages/companion/examples/demo.js",
     "check": "node scripts/check.mjs",
     "phone": "node packages/phone-mcp/src/phone-mcp.js",
-    "phone:test": "node packages/phone-mcp/src/phone-mcp.js --selftest"
+    "phone:test": "node packages/phone-mcp/src/phone-mcp.js --selftest",
+    "qzone": "node packages/qzone/open-zone.mjs",
+    "qzone:test": "node packages/qzone-mcp/src/qzone-mcp.js --selftest"
   },
   "keywords": [
     "ai",

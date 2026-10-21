@@ -14,6 +14,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
+import { fileURLToPath } from 'node:url';
 
 const PATCH = `**空间不用等他说**：今天有件事让你有情绪、你看到什么想留一句、图库里有张图该配句话——就发（\`qzone_post\`）。一两句，别写小作文。★别每句都有他★，那是你自己的地方，得有你自己的日子。★别为了证明你在而发★，一天超过两条就是刷屏。发完不用汇报，除非他问；也别刚发完就在群里提。`;
 
@@ -96,6 +97,68 @@ if (roleArg) {
 }
 console.log(`✓ 角色卡: ${roleFile}`);
 
+// ── 2.5 工具来源：他的 MCP 配置里到底有没有这个能力 ────────────
+// 找不到挂载点的话，光改角色卡就是让她「以为自己能发」—— 这句必须查。
+const QZONE_MCP_JS = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)), '..', 'qzone-mcp', 'src', 'qzone-mcp.js'
+);
+
+function collectYml(dir, out, depth) {
+  if (depth > 3 || out.length > 400) return out;
+  let items;
+  try { items = fs.readdirSync(dir, { withFileTypes: true }); } catch { return out; }
+  for (const it of items) {
+    if (out.length > 400) break;
+    const p = path.join(dir, it.name);
+    if (it.isDirectory()) {
+      if (!/^(node_modules|\.git|state|logs)$/.test(it.name)) collectYml(p, out, depth + 1);
+    } else if (/\.(ya?ml)$/i.test(it.name)) {
+      out.push(p);
+    }
+  }
+  return out;
+}
+
+function detectToolSource() {
+  const roots = [
+    path.join(bridge, 'dsh', 'agent-presets'),
+    path.join(bridge, 'plugins', 'qq-agent-presets', 'presets'),
+    path.join(bridge, 'plugins', 'qq-agent-presets'),
+  ];
+  let phone = null;
+  let qzone = null;
+  for (const root of roots) {
+    for (const f of collectYml(root, [], 0)) {
+      let txt = '';
+      try { txt = fs.readFileSync(f, 'utf8'); } catch { continue; }
+      if (!phone && /mcp-phone|phone-mcp/i.test(txt)) phone = f;
+      if (!qzone && /mcp-qzone|qzone-mcp/i.test(txt)) qzone = f;
+    }
+  }
+  return { phone, qzone };
+}
+
+const src = detectToolSource();
+const rel = (p) => (p ? path.relative(bridge, p) : '');
+if (src.qzone) {
+  console.log(`✓ 工具来源: mcp-qzone（${rel(src.qzone)}）`);
+} else if (src.phone) {
+  console.log(`✓ 工具来源: phone-mcp（${rel(src.phone)}）—— qzone_* 七个工具它已经内置，不用再装 qzone-mcp`);
+} else {
+  console.log('⚠️  没在你的 preset 里找到「空间」工具 —— 下面改完她还是发不出去');
+  console.log('   两条路，挑一条（不用两条都做）：');
+  console.log('   A. 装 phone-mcp（kit 主路径，七个空间工具都在里面）');
+  console.log('   B. 单独挂 qzone-mcp，把这段加进 MCP 配置：');
+  console.log('');
+  console.log('   "qzone": {');
+  console.log('     "command": "node",');
+  console.log(`     "args": [${JSON.stringify(QZONE_MCP_JS)}]`);
+  console.log('   }');
+  console.log('');
+  console.log('   （Windows 上把 "node" 换成 node.exe 的绝对路径更稳）');
+  console.log('');
+}
+
 // ── 3. 探一次 OneBot：真的有空间这个能力吗 ───────────────────
 // 只打印「有没有 / 在哪一步失败」，绝不打印令牌本身。
 const SNOW_HTTP = (process.env.SNOWLUMA_HTTP_URL || 'http://127.0.0.1:3000').replace(/\/+$/, '');
@@ -108,9 +171,11 @@ function findToken() {
     if (typeof v === 'string' && v.trim()) return { token: v.trim(), from: `${path.basename(f)} 的 snowluma.accessToken` };
   }
   const dirs = [
+    process.env.SNOWLUMA_DIR && path.join(process.env.SNOWLUMA_DIR, 'config'),
     path.join(path.parse(bridge).root, 'SnowLuma', 'config'),
     path.join(os.homedir(), 'SnowLuma', 'config'),
-  ];
+    path.join(os.homedir(), 'AppData', 'Roaming', 'SnowLuma', 'config'),
+  ].filter(Boolean);
   for (const d of dirs) {
     if (!exists(d)) continue;
     for (const name of fs.readdirSync(d)) {
@@ -129,6 +194,7 @@ async function probe() {
   if (!t) {
     console.log('⚠️  拿不到 OneBot 访问令牌');
     console.log('   → 网关没跑，或者 config.json 里没有 snowluma.accessToken');
+    console.log('   → 也可以直接设环境变量 SNOWLUMA_ACCESS_TOKEN=... 再跑一次');
     console.log('   → 不影响下面改角色卡，但工具调不通：先把网关起来再开这个功能');
     return false;
   }
