@@ -32,4 +32,5 @@ assets/video/
 *.mp4
 *.wav
 *.mov
-*.mkvnode_modules/
+*.mkv
+node_modules/
