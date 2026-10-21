@@ -34,3 +34,13 @@ assets/video/
 *.mov
 *.mkv
 node_modules/
+
+# ★例外：音色包的参考音频必须跟着走★
+#   585 KB，是这个包的全部价值所在 ✗ 别的素材照旧不进仓库 ✓
+!packages/her-voice/voice/*.wav
+
+# Python 服务运行产物
+__pycache__/
+*.pyc
+packages/her-voice/out/
+packages/her-voice/state/
