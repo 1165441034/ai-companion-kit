@@ -1,0 +1,27 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import { configure } from '../scripts/configure.mjs';
+test('新电脑配置按本机路径生成，重复安装保留角色与白名单', (t) => {
+  const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'qq-setup-'));
+  t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+  fs.copyFileSync(new URL('../config.example.json', import.meta.url), path.join(directory, 'config.example.json'));
+  fs.mkdirSync(path.join(directory, 'roles'));
+  fs.writeFileSync(path.join(directory, 'roles/广井菊里.md'), '管理员 {{ADMIN_QQ}}');
+  const snow = path.join(directory, 'runtime'); fs.mkdirSync(path.join(snow, 'config'), { recursive: true });
+  fs.writeFileSync(path.join(snow, 'config/onebot_10002.json'), JSON.stringify({ networks: { httpServers: [{ port: 3000, accessToken: 'test-only-token' }], wsServers: [{ port: 3001 }] } }));
+  const options = { ownerQQ: '10001', botQQ: '10002', privateQQ: ['10003'], groups: ['20001'], snowLumaHome: snow, codexPath: 'codex.exe' };
+  configure(directory, options);
+  const localRole = path.join(directory, 'roles/广井菊里.local.md');
+  assert.equal(fs.readFileSync(localRole, 'utf8'), '管理员 10001');
+  fs.writeFileSync(localRole, '用户自己的角色改动');
+  configure(directory, { ...options, privateQQ: ['10004'] });
+  const actual = JSON.parse(fs.readFileSync(path.join(directory, 'config.json')));
+  assert.deepEqual(actual.allow.private, ['10001','10002','10003','10004']);
+  assert.equal(actual.snowluma.accessToken, 'test-only-token');
+  assert.equal(actual.desktopQQ.autoReply.reasoningEffort, 'low');
+  assert.equal(actual.desktopQQ.autoReply.enabled, false);
+  assert.equal(fs.readFileSync(localRole, 'utf8'), '用户自己的角色改动');
+});

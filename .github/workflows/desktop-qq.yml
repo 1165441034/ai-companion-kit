@@ -1,0 +1,19 @@
+name: Desktop QQ
+on:
+  push:
+    paths: ['packages/desktop-qq/**', 'Install-Windows*', 'package-lock.json', '.github/workflows/desktop-qq.yml']
+  pull_request:
+    paths: ['packages/desktop-qq/**', 'Install-Windows*', 'package-lock.json', '.github/workflows/desktop-qq.yml']
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run desktop:test

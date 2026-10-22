@@ -4,6 +4,8 @@
 
 # AI Companion Kit
 
+> 本分支新增：**Windows 桌面 GPT 自动回复 QQ + 广井菊里角色卡 + 隔离的长期记忆**。双击根目录 `Install-Windows.cmd` 开始安装，详见 [桌面 QQ 部署说明](packages/desktop-qq/README.md) 和 [项目交接约定](docs/desktop-qq/PROJECT_CONTEXT.md)。无需 DSH；首次仍需在本机登录 QQ 和 ChatGPT。
+
 **给你的 AI 一副身体，和一点人味。**
 
 [![license](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)

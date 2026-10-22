@@ -1,0 +1,20 @@
+{
+  "name": "@ai-companion/desktop-qq",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "license": "MIT",
+  "engines": { "node": ">=22.13.0" },
+  "scripts": {
+    "postinstall": "node scripts/patch-sdk.mjs",
+    "start": "node src/desktop-qq-auto.mjs",
+    "mcp": "node src/mcp-desktop-qq.mjs",
+    "test": "node --test tests/*.mjs",
+    "memory": "node scripts/memory.mjs"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.30.0",
+    "@snowluma/sdk": "1.14.20",
+    "zod": "4.4.3"
+  }
+}

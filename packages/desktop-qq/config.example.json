@@ -1,0 +1,15 @@
+{
+  "ownerQQ": "",
+  "snowluma": { "httpUrl": "http://127.0.0.1:3000", "wsUrl": "ws://127.0.0.1:3001", "accessToken": "", "homeDir": "", "followDiscoveredEndpoint": true },
+  "allow": { "private": [], "groups": [] },
+  "deny": { "private": [], "groups": [] },
+  "desktopQQ": {
+    "roleCard": "roles/广井菊里.local.md",
+    "memory": { "enabled": true },
+    "autoReply": {
+      "enabled": false, "ownerQQ": "", "botQQ": "", "model": "gpt-6.1-sol", "reasoningEffort": "low",
+      "codexPath": "codex", "timeoutMs": 120000, "proxyUrl": "",
+      "groups": { "enabled": true, "names": ["广井菊里", "菊里", "戴安娜", "Dot"], "probability": 0.08, "cooldownMs": 180000, "directCooldownMs": 30000, "maxRepliesPer10Min": 6, "debounceMs": 5000, "maxQueuedAgeMs": 120000 }
+    }
+  }
+}

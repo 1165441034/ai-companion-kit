@@ -43,3 +43,15 @@ __pycache__/
 *.pyc
 packages/her-voice/out/
 packages/her-voice/state/
+
+# Windows desktop QQ: local runtimes, credentials, conversations and backups
+/SnowLuma/
+/SnowLuma-*.zip
+/qq-bridge/
+/qq-bridge-*.zip
+/qq-bridge-download/
+/runtime/
+/backups/
+packages/desktop-qq/state/
+packages/desktop-qq/roles/*.local.md
+!/package-lock.json

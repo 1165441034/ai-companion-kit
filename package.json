@@ -8,6 +8,8 @@
     "packages/*"
   ],
   "scripts": {
+    "desktop:start": "npm run start --workspace @ai-companion/desktop-qq",
+    "desktop:test": "npm test --workspace @ai-companion/desktop-qq",
     "demo": "node packages/companion/examples/demo.js",
     "check": "node scripts/check.mjs",
     "phone": "node packages/phone-mcp/src/phone-mcp.js",
