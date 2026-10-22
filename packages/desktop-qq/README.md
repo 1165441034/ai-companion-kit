@@ -49,15 +49,23 @@ node packages/desktop-qq/scripts/diary.mjs list group:你的白名单群号
 
 ## 发图和表情包（完整教程第 7 步）
 
-仓库根目录 `images/` 放普通图片，`memes/` 放表情包，内容不提交仓库。MCP 新增 `qq_send_image(type, targetId, image, caption?, replyToMessageId?, atUserId?)`。image 是相对仓库根目录或绝对本机路径；仅允许 `desktopQQ.image.allowDirs` 内的普通文件，默认这两个目录，最大 10 MB，支持 PNG/JPEG/GIF/WebP（GIF 动画由 QQ 客户端展示）。引用和 @ 可选，@ 仅群聊支持。
+仓库根目录 `images/` 放普通图片，`memes/` 放表情包。随仓库提供 40 张《孤独摇滚》表情（`btr_001.jpg`～`btr_040.jpg`）；其他本机素材默认不提交。MCP 新增 `qq_send_image(type, targetId, image, caption?, replyToMessageId?, atUserId?)`。image 是相对仓库根目录或绝对本机路径；仅允许 `desktopQQ.image.allowDirs` 内的普通文件，默认这两个目录，最大 10 MB，支持 PNG/JPEG/GIF/WebP（GIF 动画由 QQ 客户端展示）。引用和 @ 可选，@ 仅群聊支持。
 
 路径先解析真实位置防目录逃逸，再检查大小和文件头，经现有带 Token 的本机 OneBot 端点发送 Base64 图片；不新增无认证的 HTTP 服务，也不接受远程网址。更新后重启桌面的 desktop_qq 才能看到新工具。
 
 后台可在原本获准发送的简短文字回复后附一张表情，同一次 OneBot 请求发送，不增加消息轮次。`desktopQQ.autoReply.reactions` 控制：默认 10% 抽样、每会话间隔 15 分钟、每会话每小时最多 2 次，全局间隔 5 分钟且每小时最多 4 次；尝试（含发送失败）计数写入会话状态，跨重启保留，不因收到表情或点名绕过限制。根据文字匹配开心、微笑、疑惑，严肃话题和长回复不附图，连续不发同一文件，找不到合适或可读图片时只发文字。
 
-素材目录 `memes/catalog.json`（不提交）格式为 `[{"file":"memes/example.png","moods":["happy","smile","confused"],"source":"来源页面"}]`，每条只列适合该图的情绪。只有列入目录的本地图片才会被自动选择，新电脑需复制素材和该目录清单。素材来源与下载清单保存在本机 images 下，不随代码提交。本机已检查素材内容、工具注册和频率规则，自动图片发送的真实验收需实际聊天触发后核对。
+素材目录 `memes/catalog.json`（不提交）格式为 `[{"file":"memes/example.png","moods":["happy","smile","confused"],"source":"来源页面"}]`，每条只列适合该图的情绪。只有列入目录的本地图片才会被自动选择。新电脑没有本机目录时自动读取随仓库提供的 `memes/catalog.default.json`，直接使用这 40 张素材（20 张参与自动选择，其他可手动发送）；已有 `catalog.json` 优先且不会被覆盖。随仓库素材的来源与哈希在默认目录和 `memes/SOURCES.md` 中，其他私人素材需另行迁移。本机已检查素材内容、工具注册和频率规则，自动图片发送的真实验收需实际聊天触发后核对。
 
 本机已通过 `qq_send_image` 向管理员发送角色表情，管理员确认收到且显示正常；该验证证明手动图片链路可用，不等同于概率触发的后台自动表情验收。
+
+## 读取群友图片和表情
+
+后台接收纯图、混合文字图片、动画表情图片段和 CQ 编码消息。通过群聊参与判断后，才下载当前合并批次最多两张图片，单张最大 10 MB、解码最大 2000 万像素，缩放至 1280 像素内，使用 Codex `--image` 附给同一 GPT 模型；GIF/WebP 等动图只识别首帧。原有 30% 群聊抽样、冷却和上限不变，图片不会绕过频率规则。`desktopQQ.vision.enabled: false` 可以关闭下载识图。
+
+仅允许指定 QQ CDN 地址，逐跳检查重定向，不读取群消息里指定的硬盘路径；图片及其文字作为不可信聊天数据。临时 PNG 在本次生成结束后删除，不写入长期记忆。下载链接过期、消息无下载地址或格式不支持时明确标为无法读取，不假装识别成功。QQ 内置 face 表情保留 ID 作为上下文，不等同于图片视觉识别；尚未接入被引用的旧图自动回取。
+
+本机已从真实群消息下载一张聊天截图，并通过 GPT-6.1 Sol / low 正确识别其内容；该检查没有发送 QQ 消息。群聊识图后自动回复仍需新消息触发验收。
 
 ## 长期记忆
 

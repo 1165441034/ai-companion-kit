@@ -1,3 +1,13 @@
+import fs from 'node:fs';
+import path from 'node:path';
+
+export function loadReactionCatalog(projectRoot) {
+  const local = path.join(projectRoot, 'memes', 'catalog.json');
+  const bundled = path.join(projectRoot, 'memes', 'catalog.default.json');
+  const selected = fs.existsSync(local) ? local : bundled;
+  return fs.existsSync(selected) ? JSON.parse(fs.readFileSync(selected, 'utf8')) : [];
+}
+
 export function chooseReaction(text, { policy, context = '', catalog = [], chat = {}, globalAttempts = [], now = Date.now(), random = Math.random }) {
   if (!policy?.enabled || !text.trim() || text.length > 60) return null;
   // Serious topics should not be interrupted by a cheerful sticker.

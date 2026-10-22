@@ -15,6 +15,7 @@ export async function generateReply(settings, prompt, workDirectory) {
     '-c', 'web_search="disabled"', '-c', 'approval_policy="never"',
     '-c', `model_reasoning_effort=${JSON.stringify(settings.reasoningEffort ?? 'low')}`, '--model', settings.model,
     '--output-schema', schemaPath, '--json', '--cd', workDirectory, '-'];
+  for (const image of settings.images ?? []) args.splice(args.length - 1, 0, '--image', image);
   // Reuse saved ChatGPT authentication; never silently switch to API-key billing.
   const env = { ...process.env };
   for (const key of ['OPENAI_API_KEY', 'CODEX_API_KEY', 'OPENAI_BASE_URL']) delete env[key];

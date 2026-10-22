@@ -10,7 +10,7 @@ test('只接受主号的新私聊文字', () => {
   assert.equal(incomingText(event, settings).text, '菊里，在吗');
   for (const override of [{ user_id: 10002 }, { user_id: 99999 }, { self_id: 99999 },
     { message_type: 'group' }, { post_type: 'message_sent' }, { time: 1 }, { message_id: null },
-    { message: [{ type: 'image', data: { file: 'x' } }] }]) {
+    { message: [] }]) {
     assert.equal(incomingText({ ...event, ...override }, settings), null);
   }
 });

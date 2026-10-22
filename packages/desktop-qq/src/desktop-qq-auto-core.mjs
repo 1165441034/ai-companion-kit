@@ -1,3 +1,5 @@
+import { messageSegments } from './incoming-images.mjs';
+
 export function incomingText(event, { selfId, ownerQQ, allowedPrivate = [ownerQQ], allowedGroups = [], deniedGroups = [], deniedPrivate = [], groupEnabled = false, names = [], startedAt, now = Date.now() }) {
   if (event.post_type !== 'message' || !['private', 'group'].includes(event.message_type)) return null;
   if (String(event.self_id) !== String(selfId)) return null;
@@ -8,22 +10,23 @@ export function incomingText(event, { selfId, ownerQQ, allowedPrivate = [ownerQQ
   if (type === 'group' && (!groupEnabled || !allowedGroups.map(String).includes(targetId) || deniedGroups.map(String).includes(targetId))) return null;
   const timestamp = Number(event.time) * 1000;
   if (!Number.isFinite(timestamp) || timestamp < startedAt - 2000 || timestamp > now + 30000) return null;
-  const text = typeof event.message === 'string'
-    ? event.message.replace(/\[CQ:[^\]]*\]/g, '')
-    : (Array.isArray(event.message) ? event.message : [])
+  const segments = messageSegments(event.message);
+  const text = segments
       .filter((segment) => segment.type === 'text')
       .map((segment) => String(segment.data?.text ?? '')).join('');
-  const segments = Array.isArray(event.message) ? event.message : [];
+  const images = segments.filter(segment => ['image', 'mface'].includes(segment.type)).slice(0,2)
+    .map(segment => ({ url:segment.data?.url, file:segment.data?.file, senderId:String(event.user_id), messageId:String(event.message_id) }));
+  const faces = segments.filter(segment => segment.type === 'face').map(segment => `[QQ表情ID:${String(segment.data?.id).slice(0,8)}]`).join('');
   const atMe = segments.some((segment) => segment.type === 'at' && String(segment.data?.qq) === String(selfId))
     || (typeof event.message === 'string' && new RegExp(`\\[CQ:at,qq=${selfId}(?:,|\\])`).test(event.message));
   const mentioned = atMe || names.some((name) => name.toLowerCase() === 'dot'
     ? /\bdot\b/i.test(text) : text.includes(name));
-  if (!text.trim() && !atMe) return null;
+  if (!text.trim() && !atMe && !images.length && !faces) return null;
   return {
     id: `${selfId}:${type}:${targetId}:${event.message_id}`, type, targetId,
     key: `${type}:${targetId}`, senderId: String(event.user_id),
     senderName: String(event.sender?.card || event.sender?.nickname || event.user_id).slice(0, 80),
-    text: text.trim().slice(0, 4000) || '有人 @ 你', mentioned,
+    text: (text.trim() + faces).slice(0, 4000) || (images.length ? '[收到图片或动画表情]' : '有人 @ 你'), mentioned, images,
     hasReply: segments.some((segment) => segment.type === 'reply') || /\[CQ:reply,/.test(String(event.message)),
     receivedAt: now,
   };

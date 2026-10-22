@@ -56,6 +56,9 @@ packages/her-voice/state/
 !/images/.gitkeep
 /memes/*
 !/memes/.gitkeep
+!/memes/btr_[0-9][0-9][0-9].jpg
+!/memes/catalog.default.json
+!/memes/SOURCES.md
 packages/desktop-qq/state/
 packages/desktop-qq/roles/*.local.md
 !/package-lock.json
