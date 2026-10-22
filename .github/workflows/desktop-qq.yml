@@ -1,9 +1,9 @@
 name: Desktop QQ
 on:
   push:
-    paths: ['packages/desktop-qq/**', 'Install-Windows*', 'package-lock.json', '.github/workflows/desktop-qq.yml']
+    paths: ['packages/desktop-qq/**', 'packages/companion/src/diary*.js', 'Install-Windows*', 'package-lock.json', '.github/workflows/desktop-qq.yml']
   pull_request:
-    paths: ['packages/desktop-qq/**', 'Install-Windows*', 'package-lock.json', '.github/workflows/desktop-qq.yml']
+    paths: ['packages/desktop-qq/**', 'packages/companion/src/diary*.js', 'Install-Windows*', 'package-lock.json', '.github/workflows/desktop-qq.yml']
 permissions:
   contents: read
 jobs:

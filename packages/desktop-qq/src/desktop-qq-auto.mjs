@@ -6,6 +6,9 @@ import { discoverSnowLumaConnection } from './snowluma-conn.js';
 import { incomingText, groupReplyDecision, buildReplyPrompt } from './desktop-qq-auto-core.mjs';
 import { generateReply } from './desktop-qq-auto-model.mjs';
 import { LongTermMemory } from './memory.mjs';
+import { ConversationDiary, writeTodayDiary, diaryDay } from './diary.mjs';
+import { loadAllowedImage } from './images.mjs';
+import { chooseReaction } from './reactions.mjs';
 
 const root = fileURLToPath(new URL('../', import.meta.url));
 const configPath = path.join(root, 'config.json');
@@ -26,6 +29,8 @@ if (!settings.codexPath || !fs.existsSync(settings.codexPath)) {
 if (String(settings.ownerQQ) !== String(config.ownerQQ)) throw new Error('自动回复主号与管理员不一致');
 fs.mkdirSync(stateDirectory, { recursive: true });
 const memory = config.desktopQQ.memory?.enabled === false ? null : new LongTermMemory(path.join(stateDirectory, 'memory'));
+
+const diary = new ConversationDiary(path.join(stateDirectory, 'diary'));
 
 function atomicWrite(file, value) {
   const temporary = `${file}.${process.pid}.tmp`;
@@ -77,7 +82,8 @@ function saveConversation() {
     chat.history = chat.history.slice(-16);
     chat.attempts = chat.attempts.filter((time) => Date.now() - time < 600000);
   }
-  conversation = { seen: [...seen].slice(-500), chats: conversation.chats };
+  conversation = { seen: [...seen].slice(-500), chats: conversation.chats,
+    reactionAttempts: (conversation.reactionAttempts ?? []).filter(time => Date.now() - time < 3600000) };
   atomicWrite(statePath, conversation);
 }
 
@@ -93,6 +99,7 @@ const pending = new Map();
 let busy = false;
 let debounceTimer;
 let attemptedAt = [];
+const diaryAttempts = new Set();
 
 function allowedTarget(latest, message) {
   if (!latest.desktopQQ?.autoReply?.enabled) return false;
@@ -108,14 +115,40 @@ async function sendReply(text, message) {
     throw new Error('自动回复已关闭或目标不在白名单，未发送');
   }
   const group = message.type === 'group';
+  const segments = [{ type: 'text', data: { text } }];
+  const projectRoot = path.resolve(root, '..', '..');
+  const policy = latest.desktopQQ.autoReply.reactions;
+  let selectedReaction = null;
+  try {
+    const catalogPath = path.resolve(projectRoot, 'memes', 'catalog.json');
+    const catalog = fs.existsSync(catalogPath) ? JSON.parse(fs.readFileSync(catalogPath, 'utf8')) : [];
+    const chat = chatState(message.key);
+    selectedReaction = chooseReaction(text, { policy, context: message.text, catalog, chat: chat.reaction,
+      globalAttempts: conversation.reactionAttempts });
+    if (selectedReaction) {
+      const image = loadAllowedImage(selectedReaction.file, latest.desktopQQ.image, projectRoot);
+      segments.push({ type: 'image', data: { file: image.file } });
+      const now = Date.now();
+      // Reserve before sending: a failed image send also consumes the allowance.
+      chat.reaction = { lastFile: selectedReaction.file,
+        attempts: [...(chat.reaction?.attempts ?? []).filter(time => now - time < 3600000), now] };
+      conversation.reactionAttempts = [...(conversation.reactionAttempts ?? []), now];
+      saveConversation();
+    }
+  } catch (error) {
+    selectedReaction = null;
+    segments.splice(1);
+    log(`表情素材不可用，本次只发文字：${error.message}`);
+  }
   const response = await fetch(`${connection.baseUrl}/${group ? 'send_group_msg' : 'send_private_msg'}`, {
     method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${connection.token}` },
-    body: JSON.stringify({ [group ? 'group_id' : 'user_id']: Number(message.targetId), message: [{ type: 'text', data: { text } }] }),
+    body: JSON.stringify({ [group ? 'group_id' : 'user_id']: Number(message.targetId), message: segments }),
     signal: AbortSignal.timeout(15000),
   });
   if (!response.ok) throw new Error(`发送 HTTP ${response.status}，不自动重发`);
   const result = await response.json();
   if (result.status !== 'ok' || result.retcode !== 0) throw new Error(`发送失败 ${result.retcode}，不自动重发`);
+  if (selectedReaction) log(`低频表情发送成功：${message.key}，素材 ${selectedReaction.file}`);
   return result.data?.message_id;
 }
 
@@ -162,7 +195,7 @@ async function drain() {
     saveConversation();
     log(`生成回复：${batch.key}，触发 ${decision.reason}，角色 ${path.basename(rolePath, '.md')}`);
     const reply = await generateReply({ ...settings, allowSilence: batch.type === 'group' },
-      buildReplyPrompt(role, chat.history, settings.ownerQQ, batch, recalled), path.join(stateDirectory, 'model-workdir'));
+      buildReplyPrompt(role, chat.history, settings.ownerQQ, batch, recalled, diary.context(batch.key)), path.join(stateDirectory, 'model-workdir'));
     if (!reply) { status({ state: 'listening', activeChat: null }); log(`模型选择保持安静：${batch.key}`); return; }
     if (memory && memory.epoch(batch.key) !== memoryEpoch) { status({ state: 'listening', activeChat: null }); log('记忆已被遗忘请求更新，取消旧回复'); return; }
     const messageId = await sendReply(reply, batch);
@@ -171,6 +204,13 @@ async function drain() {
     saveConversation();
     status({ state: 'listening', activeChat: null, lastSentChat: batch.key, lastSentMessageId: messageId, lastSentAt: Date.now(), lastError: null });
     log(`回复发送成功，chat=${batch.key}，message_id=${messageId}`);
+    if (memory && latest.desktopQQ.diary?.enabled !== false && !diaryAttempts.has(`${batch.key}:${diaryDay()}`)) {
+      diaryAttempts.add(`${batch.key}:${diaryDay()}`);
+      try {
+        const entry = await writeTodayDiary({ diary, memory, scope: batch.key, role, settings, workDirectory: path.join(stateDirectory, "diary-workdir") });
+        if (entry) log(`当日日记已保存：${batch.key}`);
+      } catch (error) { log(`日记生成失败（不重试、不影响已发回复）：${error.message}`); }
+    }
   } catch (error) {
     log(`回复失败：${error.message}`);
     status({ state: 'listening', activeChat: null, lastError: error.message });
@@ -193,7 +233,7 @@ bot.on('event', (event) => {
   seen.add(message.id);
   if (seen.size > 500) seen.delete(seen.values().next().value);
   const memoryChange = memory?.observe(message);
-  if (memoryChange?.forgotten) { chatState(message.key).history = []; pending.delete(message.key); }
+  if (memoryChange?.forgotten) { diary.clear(message.key); chatState(message.key).history = []; pending.delete(message.key); }
   chatState(message.key).history.push({ who: message.senderId === String(settings.ownerQQ) ? '管理员' : '群友',
     senderId: message.senderId, nickname: message.senderName, text: message.text });
   saveConversation();

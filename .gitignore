@@ -52,6 +52,10 @@ packages/her-voice/state/
 /qq-bridge-download/
 /runtime/
 /backups/
+/images/*
+!/images/.gitkeep
+/memes/*
+!/memes/.gitkeep
 packages/desktop-qq/state/
 packages/desktop-qq/roles/*.local.md
 !/package-lock.json
